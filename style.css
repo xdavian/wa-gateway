@@ -1,0 +1,11 @@
+@import '~mdb-ui-kit/css/mdb.min.css';
+	.client {
+		border: 1px solid #ccc;
+		padding: 20px;
+		box-sizing: border-box;
+		display: inline-block;
+		margin: 10px;
+	}
+	.hide {
+		display: none;
+	}

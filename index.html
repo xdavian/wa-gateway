@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>WhatsApp API</title>
+	<!-- CSS only -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+	<style>
+	.client {
+		border: 1px solid #ccc;
+		padding: 20px;
+		box-sizing: border-box;
+		display: inline-block;
+		margin: 10px;
+		height: 450px;
+		max-height: 450px;
+		overflow: auto;
+	}
+	.hide {
+		display: none;
+	}
+	</style>
+</head>
+<body>
+	<header class="p-3 mb-3 border-bottom">
+		<div class="container">
+		  <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+			<a href="./" class="d-flex align-items-center mb-2 mb-lg-0 text-dark text-decoration-none">
+				<b>WhatsApp API Multi Device</b>
+			</a>
+	
+			<ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+			  <li><a href="./api.html" class="nav-link px-2 link-dark">API Docs</a></li>
+			  <!--
+			  <li><a href="#" class="nav-link px-2 link-dark">Inventory</a></li>
+			  <li><a href="#" class="nav-link px-2 link-dark">Customers</a></li>
+			  <li><a href="#" class="nav-link px-2 link-dark">Products</a></li>
+			  -->
+			</ul>
+	
+			<div class="dropdown text-end">
+			  <a href="#" class="d-block link-dark text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+				<img src="https://github.com/mdo.png" alt="mdo" width="32" height="32" class="rounded-circle">
+			  </a>
+			  <ul class="dropdown-menu text-small" aria-labelledby="dropdownUser1" style="">
+				<li><a class="dropdown-item" href="#">New project...</a></li>
+				<li><a class="dropdown-item" href="#">Settings</a></li>
+				<li><a class="dropdown-item" href="#">Profile</a></li>
+				<li><hr class="dropdown-divider"></li>
+				<li><a class="dropdown-item" href="#">Sign out</a></li>
+			  </ul>
+			</div>
+		  </div>
+		</div>
+	</header>
+	<div class="container">
+		<h4 class="title">Tambah Data</h4>
+		<p>Masukkan Nomor Handphone</p>
+		<div class="col-md-4 mb-3">
+		<input class="form-control" type="text" id="client-id" placeholder="Nomor Handphone" aria-label="default input example">
+		</div>
+		<button class="btn btn-primary add-client">Tambah Client</button>
+		<br><br>
+		<hr>
+		<div class="client-container">
+			<div class="client hide">
+				<h3 class="title"></h3>
+				<p class="description"></p>
+				<img src="https://retchhh.files.wordpress.com/2015/03/loading1.gif" width="300px" alt="QR Code" id="qrcode">
+				<ul class="logs"></ul>
+			</div>
+		</div>
+	</div>
+
+	<!-- JavaScript Bundle with Popper -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+	<script>
+		$(document).ready(function() {
+			var socket = io.connect('http://localhost:8000');
+
+			// Ketika button tambah diklik
+			$('.add-client').click(function() {
+				var clientId = $('#client-id').val();
+				var clientDescription = $('#client-description').val();
+
+        /**
+         * Some peoples want to use the phone number as the ID
+         * But because we use the ID as the html class attribute value: class="<The ID>"
+         * It won't work. Read more on https://www.w3.org/TR/REC-html40/types.html#type-cdata
+         * 
+         * So, here we add the prefix to solve that problem
+         * Each ID will automatically added a 'client-' prefix for the class attribute
+         */
+        var clientClass = 'client-' + clientId;
+				var template = $('.client').first().clone()
+										   .removeClass('hide')
+										   .addClass(clientClass);
+
+				template.find('.title').html(clientId);
+				template.find('.description').html(clientDescription);
+				$('.client-container').append(template);
+
+				socket.emit('create-session', {
+					id: clientId
+				});
+			});
+
+			socket.on('init', function(data) {
+				$('.client-container .client').not(':first').remove();
+				console.log(data);
+				for (var i = 0; i < data.length; i++) {
+					var session = data[i];
+
+					var clientId = session.id;
+					var clientDescription = session.description;
+
+          var clientClass = 'client-' + clientId;
+					var template = $('.client').first().clone()
+											   .removeClass('hide')
+											   .addClass(clientClass);
+
+					template.find('.title').html(clientId);
+					template.find('.description').html(clientDescription);
+					$('.client-container').append(template);
+
+					if (session.ready) {
+						$(`.client.${clientClass} .logs`).append($('<li>').text('Whatsapp is ready!'));
+					} else {
+						$(`.client.${clientClass} .logs`).append($('<li>').text('Connecting...'));
+					}
+				}
+			});
+
+			socket.on('remove-session', function(id) {
+				$(`.client.client-${id}`).remove();
+			});
+
+			socket.on('message', function(data) {
+				$(`.client.client-${data.id} .logs`).append($('<li>').text(data.text));
+			});
+
+			socket.on('ready', function(data) {
+				$(`.client.client-${data.id} #qrcode`).hide();
+			});
+
+			socket.on('authenticated', function(data) {
+				$(`.client.client-${data.id} #qrcode`).hide();
+			});
+
+			socket.on('qr', function(data) {
+				$(`.client.client-${data.id} #qrcode`).attr('src', data.src);
+				$(`.client.client-${data.id} #qrcode`).show();
+			});
+
+		});
+	</script>
+</body>
+</html>
